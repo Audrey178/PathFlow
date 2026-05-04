@@ -30,3 +30,5 @@ Thumbs.db
 # IDEs (Nếu bạn dùng VS Code hoặc PyCharm)
 .vscode/
 .idea/
+
+datasets/

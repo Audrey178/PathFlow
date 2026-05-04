@@ -4,14 +4,15 @@ import os
 from pathlib import Path
 import csv
 import json
+import numpy as np
          
 class FrameDataset(Dataset):
-    def __init__(self, slide_ids, labels,  root_dir = 'datasets/frames_v3', img_size = 224, transform = None):
+    def __init__(self, slide_ids, labels, csv_path, root_dir = 'datasets/frames'):
         super().__init__()
         self.slide_ids = slide_ids
         self.labels = labels
+        self.csv_path = csv_path
         self.folder_dirs = [Path(root_dir) / label / slide_id for (slide_id, label) in zip(slide_ids, labels)]
-        self.img_size = img_size
 
     def __len__(self):
         return len(self.folder_dirs)
@@ -20,8 +21,12 @@ class FrameDataset(Dataset):
         folder = self.folder_dirs[index]
         slide_id = self.slide_ids[index]
         img_files = sorted(os.listdir(folder))
+        indices = find_entry_csv(self.csv_path, slide_id)["selected_frames"]
         img_paths = [os.path.join(folder, f) for f in img_files]
-        return img_paths, slide_id
+        indices_list = json.loads(indices)
+        img_paths = np.array(img_paths)
+        selected_img_paths = [img_paths[i] for i in indices_list]  # Select frames based on indices from CSV
+        return selected_img_paths, slide_id
     
     
 def find_entry_csv(csv_path, target_slide_id):

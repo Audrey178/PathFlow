@@ -1,8 +1,8 @@
-# PathoFlow: A Motion-Aware Prototype-Based Framework for Microscopic Pathology Video Classification
+# PathFlow: A Motion-Aware Prototype-Based Framework for Microscopic Pathlogy Video Classification
 
 ## Overview
 
-This repository contains the implementation of PathoFlow, a framework for video analysis with adaptive token selection and masking strategies. The codebase includes data preparation, feature extraction, model training, and evaluation pipelines.
+This repository contains the implementation of PathFlow, a framework for video analysis with adaptive token selection and masking strategies. The codebase includes data preparation, feature extraction, model training, and evaluation pipelines.
 
 We provide a subset of videos to facilitate reproducibility of our results: [Download](https://mega.nz/folder/1jBmnCza#eAfKKdBksybicLvA2kSsqA). For your own dataset, follow the steps below to prepare data.
 
@@ -28,7 +28,7 @@ We provide a subset of videos to facilitate reproducibility of our results: [Dow
 1. Clone the repository and navigate to the project directory:
 
 ```bash
-cd PathoFlow
+cd PathFlow
 ```
 
 2. Create a virtual environment:
@@ -46,17 +46,18 @@ pip install -r requirements.txt
 
 4. Set up environment variables (for HuggingFace token, WanDB token):
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (.env.example) and add your HuggingFace token and Weights & Biases token:
 
 ```
 HF_TOKEN=your_huggingface_token_here
+WANDB_TOKEN=your_wandb_token_here
 ```
 
 ## Data Preparation
 
 ### Overview
 
-For your own dataset, you can modify and run following this steps: 
+For your own dataset, you can modify and run following this steps:
 
 ### Step 1: Extract Frames from Videos
 
@@ -66,9 +67,84 @@ Convert your videos to frame sequences:
 python preprocessing_video.py
 ```
 
-### Step 2: Extract Features Using SSL Pretrained Models
+### Step 2: Prepare Dataset CSV Files and Data Directory
+
+Organize your dataset directory as follows:
+
+```datasets/
+├── videos/
+│   ├── Label_1/
+│   │   ├── video_001.mp4
+│   │   ├── video_002.mp4
+│   ├── Label_2/
+│   │   ├── video_003.mp4
+│   │   ├── video_004.mp4
+│   └── ...
+├── csv/
+│   ├── train.csv
+│   ├── val.csv
+│   └── test.csv
+└── feats/  # Directory for extracted features
+```
+
+Create CSV files for train/val/test splits in `datasets/csv/`:
+
+**Format:** `{split}.csv`
+
+```csv
+slide_id,label,label_idx,path
+video_001,Normal,0,datasets/videos/video_001.mp4
+video_002,Adenoma,1,datasets/videos/video_002.mp4
+...
+```
+
+### Step 3: Optical Flow-based Frame Selection
+
+To reduce redundancy and select keyframes based on motion patterns, run the optical flow frame selection scripts for each dataset split:
+
+```bash
+# For training split
+python utils/finding_frame_idx_train.py
+
+# For validation split
+python utils/finding_frame_idx_val.py
+
+# For test split
+python utils/finding_frame_idx_test.py
+```
+
+These scripts analyze video frames using **optical flow** to intelligently select representative frames based on:
+
+- **Motion detection**: Tracks pixel-level motion between consecutive frames
+- **Motion patterns**: Classifies scanning modes (SLOW_SWEEP, NORMAL_RASTER, FAST_SWEEP)
+- **Adaptive sampling**: Selects frames based on accumulated motion distance
+- **Turn detection**: Detects direction changes in raster scanning patterns
+
+The algorithm detects:
+
+- **MIN_FEATURES**: Minimum texture features required (50)
+- **MIN_MOTION_PX**: Minimum motion threshold in pixels (2)
+- **MAX_JITTER_PX**: Maximum jitter tolerance (3)
+- **OVERLAP_RATIO**: Overlap ratio for stitching (0.2)
+
+The updated CSV will include a `selected_frames` column containing the indices of keyframes:
+
+```csv
+slide_id,label,label_idx,path,selected_frames
+video_001,Normal,0,datasets/videos/video_001.mp4,"[0, 5, 12, 28, 45, ...]"
+video_002,Adenoma,1,datasets/videos/video_002.mp4,"[0, 8, 19, 31, 52, ...]"
+...
+```
+
+### Step 3: Install FFmpeg and Extract frames from videos
+
+Ensure FFmpeg is installed and accessible in your system PATH. This is required for video processing and frame extraction.
+You can download FFmpeg from https://ffmpeg.org/download.html and follow the installation instructions for your operating system.
+
+### Step 3: Extract Features Using SSL Pretrained Models
 
 We recommend extracting features using self-supervised learning (SSL) pretrained models. Our implementation uses the **UNI2-h** checkpoint provided by MahmoodLab.
+If you have access to the pretrained model, you need to agree to share your contact information to access this model on HuggingFace. Please follow the instructions in the HuggingFace repository to obtain access.
 
 Extract features for each dataset split:
 
@@ -92,56 +168,6 @@ python utils/feat_extract.py \
     --feats_dir datasets/feats
 ```
 
-### Step 3: Prepare Dataset CSV Files
-
-Create CSV files for train/val/test splits in `datasets/csv/`:
-
-**Format:** `{split}.csv`
-
-```csv
-slide_id,label,label_idx,path
-video_001,Normal,0,datasets/videos/video_001.mp4
-video_002,Adenoma,1,datasets/videos/video_002.mp4
-...
-```
-
-### Step 4: Optical Flow-based Frame Selection
-
-To reduce redundancy and select keyframes based on motion patterns, run the optical flow frame selection scripts for each dataset split:
-
-```bash
-# For training split
-python utils/finding_frame_idx_train.py
-
-# For validation split
-python utils/finding_frame_idx_val.py
-
-# For test split
-python utils/finding_frame_idx_test.py
-```
-
-These scripts analyze video frames using **optical flow** to intelligently select representative frames based on:
-- **Motion detection**: Tracks pixel-level motion between consecutive frames
-- **Motion patterns**: Classifies scanning modes (SLOW_SWEEP, NORMAL_RASTER, FAST_SWEEP)
-- **Adaptive sampling**: Selects frames based on accumulated motion distance
-- **Turn detection**: Detects direction changes in raster scanning patterns
-
-The algorithm detects:
-- **MIN_FEATURES**: Minimum texture features required (50)
-- **MIN_MOTION_PX**: Minimum motion threshold in pixels (2)
-- **MAX_JITTER_PX**: Maximum jitter tolerance (3)
-- **OVERLAP_RATIO**: Overlap ratio for stitching (0.2)
-
-The updated CSV will include a `selected_frames` column containing the indices of keyframes:
-
-```csv
-slide_id,label,label_idx,path,selected_frames
-video_001,Normal,0,datasets/videos/video_001.mp4,"[0, 5, 12, 28, 45, ...]"
-video_002,Adenoma,1,datasets/videos/video_002.mp4,"[0, 8, 19, 31, 52, ...]"
-...
-```
-
-
 ## Training
 
 ### Baseline Model
@@ -163,16 +189,16 @@ python main.py --config-name baseline
 Edit `configs/baseline.yaml` to modify training parameters:
 
 ```yaml
-strategy: 'baseline'
+strategy: "baseline"
 seed: 512
 batch_size: 8
 num_classes: 3
 max_epochs: 100
 lr: 2e-4
 dropout: 0.2
-top_k: 256          # Number of tokens to keep
-n_masked_patch: 0   # Number of patches to mask
-mask_drop: 0.5      # Mask dropout probability
+top_k: 256 # Number of tokens to keep
+n_masked_patch: 0 # Number of patches to mask
+mask_drop: 0.5 # Mask dropout probability
 ```
 
 ### Hyperparameter Ablation Studies
@@ -196,6 +222,7 @@ bash run_masking.sh
 ```
 
 Tests combinations of:
+
 - `n_masked_patch`: [4, 8, 12]
 - `mask_drop`: [0.5]
 
@@ -250,10 +277,12 @@ python infer.py \
 ### Arguments
 
 **Required:**
+
 - `--video_path`: Path to input video file (.mp4, .avi, .mkv)
 - `--model_path`: Path to trained model checkpoint (.pth)
 
 **Optional:**
+
 - `--num_classes`: Number of output classes (default: 2)
 - `--hidden_size`: Embedding dimension (default: 1536, should match UNI2-h)
 - `--ratio`: Token selection ratio (default: 0.1)
@@ -314,7 +343,6 @@ CONFIDENCE: 95.32%
 - Ensure `HF_TOKEN` is set in your `.env` file for HuggingFace model access
 - The inference uses the same optical flow-based frame selection as training
 
-
 ## Key Features
 
 - **Adaptive Token Selection**: Dynamically select relevant tokens based on optical flow analysis
@@ -327,7 +355,7 @@ CONFIDENCE: 95.32%
 Training metrics are logged to Weights & Biases (W&B). Configure in `baseline.yaml`:
 
 ```yaml
-wandb: True  # Set to False to disable W&B logging
+wandb: True # Set to False to disable W&B logging
 ```
 
 View experiments at: https://wandb.ai/
@@ -335,40 +363,43 @@ View experiments at: https://wandb.ai/
 ## Setting up Web Demo
 
 ### 1. Prerequisites
+
 Ensure your host machine has the following installed:
-* **Docker** and **Docker Compose**
-* **NVIDIA Container Toolkit** (for GPU support)
-* **NVIDIA Drivers**
+
+- **Docker** and **Docker Compose**
+- **NVIDIA Container Toolkit** (for GPU support)
+- **NVIDIA Drivers**
 
 ### 2. Build and Run
+
 Navigate to the project directory and launch the system using Docker Compose:
 
 ```bash
-cd Pathoflow
+cd Pathflow
 docker compose up -d --build
 ```
 
 ### 3. Usage
+
 Open your browser to http://localhost:8502.
 
 Input: Upload a video study.
 
 Output: The predicted class Normal, Adenoma or Malignant and the model's confidence score.
 
-
 ## Video demo
 
-![PathoFlow Demo](demo.gif)
+![PathFlow Demo](demo.gif)
 
 ▶ Full video: [Download clean_demo.mp4](clean_demo.mp4)
 
-
 ## Citation
+
 If you use this code in your research, please cite:
 
 ```bibtex
-@article{PathoFlow2026,
-  title={PathoFlow:  A Motion-Aware Prototype-Based Framework for Microscopic Pathology Video Classification},
+@article{PathFlow2026,
+  title={PathFlow:  A Motion-Aware Prototype-Based Framework for Microscopic Pathlogy Video Classification},
   author={Your Name},
   journal={Your Journal},
   year={2026}

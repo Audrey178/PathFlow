@@ -35,20 +35,8 @@ class TimmViTEncoder(torch.nn.Module):
     
     def forward(self, x):
         try: 
-            T, C, H, W = x.shape
-            num_patches_H = H // 224
-            num_patches_W = W // 224
-            
-            for i in range(0, num_patches_H):
-                for j in range(0, num_patches_W):
-                    patch = x[:, :, i*224:(i+1)*224, j*224:(j+1)*224]
-                    patch = self.transform(patch)
-                    if i == 0 and j == 0:
-                        feats = self.model(patch)
-                    else:
-                        patch_feats = self.model(patch)
-                        feats += patch_feats
-            feats = feats / (num_patches_H * num_patches_W)
+            x_transformed = self.transform(x)
+            feats = self.model(x_transformed)
             return feats
         except Exception as e:
             raise ValueError(f"Error at ViT: {e}")
@@ -62,11 +50,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', required=True)
     parser.add_argument('--split', required=True)
-    parser.add_argument('--feats_dir', required=True)
+   
     
     args = parser.parse_args()
     data_dir = args.data_dir
-    feats_dir = args.feats_dir
     split = args.split
     
     timm_kwargs = {
@@ -90,13 +77,16 @@ def main():
     model.to(device)
     
     print(f'Reading csv from {data_dir}/csv/{split}.csv')
-    df = pd.read_csv(f'{data_dir}/csv/{split}.csv')
+    csv_path = f'{data_dir}/csv/{split}.csv'
+    frames_dir = f"{data_dir}/frames"
+    feats_dir = f"{data_dir}/feats"
+    df = pd.read_csv(csv_path)
     slide_ids = df['slide_id'].tolist()
     labels_idx = df['label_idx'].tolist()
     labels = df['label'].tolist()
     print(f"Done!")
     print(f"Initializing dataset and dataloader...")
-    dataset = FrameDataset(slide_ids, labels, root_dir=f'{data_dir}/frames_v3', img_size=224)
+    dataset = FrameDataset(slide_ids, labels, csv_path=csv_path, root_dir=frames_dir)
     
     
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)

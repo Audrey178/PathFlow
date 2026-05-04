@@ -7,6 +7,7 @@ import shutil
 from tempfile import NamedTemporaryFile
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
+import argparse
 
 def determine_mode(speed, median_speed):
     INSPECTION = "SLOW_SWEEP"
@@ -219,8 +220,10 @@ def process_row(row):
 
 # --- 2. MAIN EXECUTION ---
 if __name__ == "__main__":
-    folder_in = "/mnt/disk4/video-panninng-classification/datasets/frames"
-    csv_path = '/mnt/disk4/video-panninng-classification/datasets/csv/train.csv'
+    parser = argparse.ArgumentParser(description="Process Optical Flow")
+    parser.add_argument('--csv_path', type=str, required=True, help="Path to the input CSV file")
+    args = parser.parse_args()
+    csv_path = args.csv_path
     full_path = csv_path
     
     print(f"Processing CSV: {full_path}")
