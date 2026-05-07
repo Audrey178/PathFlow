@@ -12,7 +12,8 @@ We provide a subset of videos to facilitate reproducibility of our results: [Dow
 2. [Data Preparation](#data-preparation)
 3. [Training](#training)
 4. [Evaluation](#evaluation)
-5. [Video demo](#video-demo)
+5. [Inference](#inference)
+6. [Video demo](#video-demo)
 
 ## Installation
 
@@ -242,6 +243,31 @@ bash scripts/eval.sh
 
 - Ensure `HF_TOKEN` is set in your `.env` file for HuggingFace model access
 - The inference uses the same optical flow-based frame selection as training
+
+## Inference
+
+Run inference on a single video with `infer.py`:
+
+```bash
+python infer.py \
+    --video_path datasets/videos/Normal/video_001.mp4 \
+    --model_path results/baseline/best_model.pt \
+    --device cuda:0
+```
+
+The script will:
+
+1. Read all frames from the input video
+2. Select representative frames with the optical-flow frame selector
+3. Extract UNI2-h features
+4. Load the trained `VTransAdaptive` classifier checkpoint
+5. Print the predicted class, confidence score, selected frame indices, and per-class probabilities
+
+Notes:
+
+- Set `HF_TOKEN` in `.env` before running inference because `infer.py` loads `MahmoodLab/UNI2-h` from HuggingFace.
+- Use `--device cuda` or `--device cuda:<index>` for GPU inference. Use `--device cpu` when CUDA is unavailable.
+- Make sure `--class_names` matches the label order used during training.
 
 ## Key Features
 
