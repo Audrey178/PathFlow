@@ -1,10 +1,10 @@
-# PathFlow: A Motion-Aware Prototype-Based Framework for Microscopic Pathlogy Video Classification
+# PathFlow: A Motion-Aware Prototyping Framework for Microscopic Pathology Video Classification
 
 ## Overview
 
 This repository contains the implementation of PathFlow, a framework for video analysis with adaptive token selection and masking strategies. The codebase includes data preparation, feature extraction, model training, and evaluation pipelines.
 
-We provide a subset of videos to facilitate reproducibility of our results: [Download](https://mega.nz/folder/1jBmnCza#eAfKKdBksybicLvA2kSsqA). For your own dataset, follow the steps below to prepare data.
+We provide a subset of videos to facilitate reproducibility of our results: [Download](https://dataverse.harvard.edu/previewurl.xhtml?token=b328291f-18d1-4911-83e4-371880d281db). For your own dataset, follow the steps below to prepare data.
 
 ## Table of Contents
 
@@ -59,15 +59,7 @@ WANDB_TOKEN=your_wandb_token_here
 
 For your own dataset, you can modify and run following this steps:
 
-### Step 1: Extract Frames from Videos
-
-Convert your videos to frame sequences:
-
-```bash
-python preprocessing_video.py
-```
-
-### Step 2: Prepare Dataset CSV Files and Data Directory
+### Step 1: Prepare Dataset CSV Files and Data Directory
 
 Organize your dataset directory as follows:
 
@@ -84,7 +76,10 @@ Organize your dataset directory as follows:
 │   ├── train.csv
 │   ├── val.csv
 │   └── test.csv
-└── feats/  # Directory for extracted features
+├── feats/  # Directory for extracted features
+│
+└── frames/ # Directory for extracted frames
+
 ```
 
 Create CSV files for train/val/test splits in `datasets/csv/`:
@@ -93,27 +88,54 @@ Create CSV files for train/val/test splits in `datasets/csv/`:
 
 ```csv
 slide_id,label,label_idx,path
-video_001,Normal,0,datasets/videos/video_001.mp4
-video_002,Adenoma,1,datasets/videos/video_002.mp4
+video_001,Normal,0,datasets/videos/Normal/video_001.mp4
+video_002,Adenoma,1,datasets/videos/Adenoma/video_002.mp4
 ...
 ```
 
-### Step 3: Optical Flow-based Frame Selection
+### Step 2: Run the Data Preparation Pipeline
 
-To reduce redundancy and select keyframes based on motion patterns, run the optical flow frame selection scripts for each dataset split:
+Run the preparation script for each split you want to process:
 
 ```bash
-# For training split
-python utils/finding_frame_idx_train.py
-
-# For validation split
-python utils/finding_frame_idx_val.py
-
-# For test split
-python utils/finding_frame_idx_test.py
+bash scripts/prepare_data.sh --split train
+bash scripts/prepare_data.sh --split val
+bash scripts/prepare_data.sh --split test
 ```
 
-These scripts analyze video frames using **optical flow** to intelligently select representative frames based on:
+The script runs the full preparation pipeline:
+
+1. Extract frames from videos with `preprocessing_video.py`
+2. Select representative frames with `utils/finding_frame_idx_OF.py`
+3. Extract UNI2-h features with `utils/feat_extract.py`
+
+Full usage:
+
+```bash
+bash scripts/prepare_data.sh \
+    --data_dir datasets \
+    --split train \
+    --max_workers 4
+```
+
+The script creates a backup of the split CSV before optical-flow processing:
+
+```bash
+datasets/csv/train.csv.bak
+```
+
+Before running the script, make sure:
+
+- FFmpeg is installed and available in your system `PATH`
+- Python dependencies are installed from `requirements.txt`
+- `HF_TOKEN` is set in the environment or in `.env`
+- You have access to the HuggingFace model `MahmoodLab/UNI2-h`
+
+#### Optical Flow-based Frame Selection
+
+This stage is already included in `scripts/prepare_data.sh`. It analyzes extracted frames and writes selected frame indices back to the split CSV.
+
+The optical-flow stage selects representative frames based on:
 
 - **Motion detection**: Tracks pixel-level motion between consecutive frames
 - **Motion patterns**: Classifies scanning modes (SLOW_SWEEP, NORMAL_RASTER, FAST_SWEEP)
@@ -131,42 +153,30 @@ The updated CSV will include a `selected_frames` column containing the indices o
 
 ```csv
 slide_id,label,label_idx,path,selected_frames
-video_001,Normal,0,datasets/videos/video_001.mp4,"[0, 5, 12, 28, 45, ...]"
-video_002,Adenoma,1,datasets/videos/video_002.mp4,"[0, 8, 19, 31, 52, ...]"
+video_001,Normal,0,datasets/videos/Normal/video_001.mp4,"[0, 5, 12, 28, 45, ...]"
+video_002,Adenoma,1,datasets/videos/Adenoma/video_002.mp4,"[0, 8, 19, 31, 52, ...]"
 ...
 ```
 
-### Step 3: Install FFmpeg and Extract frames from videos
+### Optional: Manual Commands
 
-Ensure FFmpeg is installed and accessible in your system PATH. This is required for video processing and frame extraction.
-You can download FFmpeg from https://ffmpeg.org/download.html and follow the installation instructions for your operating system.
-
-### Step 3: Extract Features Using SSL Pretrained Models
-
-We recommend extracting features using self-supervised learning (SSL) pretrained models. Our implementation uses the **UNI2-h** checkpoint provided by MahmoodLab.
-If you have access to the pretrained model, you need to agree to share your contact information to access this model on HuggingFace. Please follow the instructions in the HuggingFace repository to obtain access.
-
-Extract features for each dataset split:
+If you need to debug one stage at a time, you can run the commands manually:
 
 ```bash
-# For training split
-python utils/feat_extract.py \
-    --data_dir datasets \
-    --split train \
-    --feats_dir datasets/feats
+python preprocessing_video.py \
+    --video_dir datasets/videos \
+    --frame_dir datasets/frames \
+    --max_workers 4
 
-# For validation split
-python utils/feat_extract.py \
-    --data_dir datasets \
-    --split val \
-    --feats_dir datasets/feats
+python utils/finding_frame_idx_OF.py \
+    --csv_path datasets/csv/train.csv
 
-# For test split
 python utils/feat_extract.py \
     --data_dir datasets \
-    --split test \
-    --feats_dir datasets/feats
+    --split train
 ```
+
+Feature extraction uses the **UNI2-h** checkpoint provided by MahmoodLab. If you do not already have access, follow the HuggingFace repository instructions before running this step.
 
 ## Training
 
@@ -175,7 +185,7 @@ python utils/feat_extract.py \
 To train the baseline:
 
 ```bash
-bash run.sh
+bash scripts/run.sh
 ```
 
 Or manually:
@@ -188,6 +198,8 @@ python main.py --config-name baseline
 
 Edit `configs/baseline.yaml` to modify training parameters:
 
+Example config:
+
 ```yaml
 strategy: "baseline"
 seed: 512
@@ -196,45 +208,8 @@ num_classes: 3
 max_epochs: 100
 lr: 2e-4
 dropout: 0.2
-top_k: 256 # Number of tokens to keep
-n_masked_patch: 0 # Number of patches to mask
-mask_drop: 0.5 # Mask dropout probability
+ratio: 0.1
 ```
-
-### Hyperparameter Ablation Studies
-
-#### Top-K Ablation
-
-Test different numbers of tokens to keep:
-
-```bash
-bash run_topk_fixed.sh
-```
-
-Tests top_k values: [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
-
-#### Masking Strategy
-
-Evaluate different masking configurations:
-
-```bash
-bash run_masking.sh
-```
-
-Tests combinations of:
-
-- `n_masked_patch`: [4, 8, 12]
-- `mask_drop`: [0.5]
-
-#### Adaptive Token Selection
-
-Run experiments with multiple seeds:
-
-```bash
-bash run_adaptive.sh
-```
-
-Seeds: [0.05, 0.07, 0.1, 0.25, 0.5, 0.75]
 
 ### Training with Custom Parameters
 
@@ -255,87 +230,13 @@ python main.py \
 Evaluate trained models:
 
 ```bash
-python eval.py --model_path results/baseline/best_model.pt
+python eval.py --config-name baseline model_path results/baseline/best_model.pt
 ```
 
 Or using the provided evaluation script:
 
 ```bash
-bash eval.sh
-```
-
-## Inference on Single Video
-
-Run inference on a single video file to get predictions:
-
-```bash
-python infer.py \
-    --video_path path/to/your/video.mp4 \
-    --model_path results/baseline/best_model.pth
-```
-
-### Arguments
-
-**Required:**
-
-- `--video_path`: Path to input video file (.mp4, .avi, .mkv)
-- `--model_path`: Path to trained model checkpoint (.pth)
-
-**Optional:**
-
-- `--num_classes`: Number of output classes (default: 2)
-- `--hidden_size`: Embedding dimension (default: 1536, should match UNI2-h)
-- `--ratio`: Token selection ratio (default: 0.1)
-- `--dropout`: Dropout probability (default: 0.5)
-- `--n_masked_patch`: Number of patches to mask (default: 10)
-- `--mask_drop`: Mask dropout probability (default: 0.1)
-- `--device`: Device to use (default: 'cuda' if available, else 'cpu')
-
-### Inference Pipeline
-
-The inference script performs the following steps:
-
-1. **Load Video**: Reads all frames from the input video file
-2. **Frame Selection**: Applies optical flow-based smart sampling to select keyframes
-3. **Feature Extraction**: Extracts features using UNI2-h pretrained encoder
-4. **Classification**: Passes features through trained VTransAdaptive model
-5. **Output**: Returns prediction class and confidence score
-
-### Example Usage
-
-```bash
-# Basic inference
-python infer.py \
-    --video_path datasets/videos/sample.mp4 \
-    --model_path results/baseline/checkpoint_best.pth
-
-# With custom parameters
-python infer.py \
-    --video_path datasets/videos/sample.mp4 \
-    --model_path results/baseline/checkpoint_best.pth \
-    --num_classes 3 \
-    --ratio 0.15 \
-    --n_masked_patch 12 \
-    --device cuda
-```
-
-### Output Example
-
-```
-1. Reading video: datasets/videos/sample.mp4
-   Original frames: 1250 | Selected frames: 125
-2. Initializing UNI2-h Encoder...
-   Extracting features...
-   Features shape: torch.Size([1, 125, 1536])
-3. Loading VTransAdaptive...
-   Loading checkpoint: results/baseline/checkpoint_best.pth
-4. Final Prediction...
-
-========================================
-VIDEO: sample.mp4
-PREDICTION: Class 1
-CONFIDENCE: 95.32%
-========================================
+bash scripts/eval.sh
 ```
 
 ### Notes
@@ -399,7 +300,7 @@ If you use this code in your research, please cite:
 
 ```bibtex
 @article{PathFlow2026,
-  title={PathFlow:  A Motion-Aware Prototype-Based Framework for Microscopic Pathlogy Video Classification},
+  title={PathFlow:  A Motion-Aware Prototyping Framework for Microscopic Pathology Video Classification},
   author={Your Name},
   journal={Your Journal},
   year={2026}

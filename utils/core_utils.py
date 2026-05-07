@@ -105,35 +105,13 @@ def train(run, logger, args, train_loader, val_loader, device, model = None):
     best_acc = -1
     try: 
         for epoch in range(0, args.max_epochs):
-            # MASK_START_EPOCH = 15 # Huy
-            # if epoch < warmup_epochs:
-            #     current_lr = base_lr * ((epoch + 1) / warmup_epochs)
-            #     for param_group in optimizer.param_groups:
-            #         param_group['lr'] = current_lr
-            # if epoch == MASK_START_EPOCH: # Huy
-            #     logger.info(f"🚀 Masking Phase Started. Performing SOFT Reset.")
-            #     new_lr = base_lr * 0.1 
-                
-            #     for param_group in optimizer.param_groups:
-            #         param_group['lr'] = new_lr 
-            #     scheduler._reset() 
-            #     scheduler.best = float('inf')
             ls = get_label_smoothing(epoch, args.max_epochs)
             loss_fn = nn.CrossEntropyLoss(label_smoothing=ls)
             val_loss_fn = nn.CrossEntropyLoss()
             train_loss = train_loop(run, scaler, logger, epoch, model, train_loader, metrics, optimizer, device, 1, loss_fn)
             acc, val_loss = validate(run, logger, epoch, model, val_loader, device, args.strategy, metrics, 1, val_loss_fn, args.results_dir_path)
-            # if epoch < MASK_START_EPOCH + 5:  # The "Buffer" # Huy
-            #     pass  # Don't let the scheduler see the crash!
-            # else:
-            #     scheduler.step(val_loss)
             scheduler.step(val_loss) 
             
-            # eval_table.add_data(epoch, res["accuracy"], res["f1_score"], res["precision"], res["recall"])
-            # if args.early_stopping:
-            #     model.load_state_dict(torch.load(os.path.join(args.results_dir, "s_{}_checkpoint.pt".format(cur))))
-            # else:
-            #     torch.save(model.state_dict(), os.path.join(args.results_dir, "s_{}_checkpoint.pt".format(cur)))
             
             if acc > best_acc:
                 best_acc = acc
@@ -145,8 +123,10 @@ def train(run, logger, args, train_loader, val_loader, device, model = None):
                 name_prefix = getattr(args, "save_name", "best_model")
                 
                 # Create a filename that won't be overwritten
-                filename = 'new/' + f"{name_prefix}.pth"
-                save_path = os.path.join(writer_dir, filename)
+                filename = f"{name_prefix}.pth"
+                new_dir = os.path.join(writer_dir, 'new_best_accuracy')
+                os.makedirs(new_dir, exist_ok=True)
+                save_path = os.path.join(new_dir, filename)
                 
                 # --- CHANGE ENDS HERE ---
 

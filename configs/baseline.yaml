@@ -1,25 +1,21 @@
-
 defaults:
-    - _self_
+  - _self_
 
-strategy: 'baseline'
+strategy: "baseline"
 seed: 512
 
-
 # dataset
-csv_path: 'datasets/csv'
-feats_path: 'datasets/feats'
+csv_path: "datasets/csv"
+feats_path: "datasets/feats"
 batch_size: 8
 num_classes: 3
 img_size: 224
 patch_size: 16
 
-
 # training
 ratio: 0.1
-top_k: 256
-save_name: 'baseline'
-opt: 'adam'
+save_name: "baseline"
+opt: "adam"
 model: "vit_transformer"
 dropout: 0.2
 max_epochs: 100
@@ -28,8 +24,7 @@ lr: 2e-4
 hidden_size: 1536
 wandb: True
 patience: 30
-n_masked_patch: 0
-mask_drop: 0.5
 
 #result
 results_dir_path: "results"
+model_path: ""

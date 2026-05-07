@@ -203,10 +203,8 @@ class VTrans(nn.Module):
         return logits
     
 class VTransAdaptive(nn.Module):
-    def __init__(self, num_classes, chunk_size = 500, dropout = 0.15, hidden_dim = 1536, n_masked_patch=0, mask_drop=0.5, ratio=0.5):
+    def __init__(self, num_classes, chunk_size = 500, dropout = 0.15, hidden_dim = 1536, ratio=0.5):
         super().__init__()
-        self.n_masked_patch = n_masked_patch # huy
-        self.mask_drop = mask_drop # Huy
         self.hidden_dim = hidden_dim
         self.num_classes = num_classes
         self.chunk_size = chunk_size
@@ -226,35 +224,6 @@ class VTransAdaptive(nn.Module):
        
         feats = feats[:, idxs]  # [B, T//stride, D]
         attn_mask = attn_mask[:, idxs]  # [B, T//stride]    
-        if self.n_masked_patch > 0 and self.training: #Huy
-            # 1. Get importance scores
-            importance = self.importance_gate(feats).squeeze(-1) 
-            
-            low_val = -torch.finfo(importance.dtype).max / 2
-            importance = importance.masked_fill(attn_mask == 0, low_val)
-
-            # 3. Find top-k
-            n_mask = min(self.n_masked_patch, T)
-            _, indices = torch.topk(importance, n_mask, dim=-1)
-
-            # 4. Handle the dropping
-            num_to_drop = int(n_mask * self.mask_drop)
-            if num_to_drop > 0:
-                # Create a random mask on the same device and same dtype
-                # Shuffling indices to pick which to drop
-                noise = torch.rand_like(indices.float())
-                rand_select = torch.argsort(noise, dim=-1)[:, :num_to_drop]
-                to_mask_indices = indices.gather(1, rand_select)
-
-                # 5. CREATE MASK WITH EXPLICIT DTYPE
-                # If this isn't feats.dtype, the multiplication below triggers the overflow
-                m_mask = torch.ones_like(attn_mask, dtype=feats.dtype) 
-                
-                # Use scatter_ with a value of 0.0 (safe for all dtypes)
-                m_mask.scatter_(1, to_mask_indices, 0.0)
-                
-                # Update the attention mask
-                attn_mask = attn_mask * m_mask
                 
         # ----> Cluster pooling (learnable)
         clustered_feats = self.token_pooler(feats, attn_mask)  # [B, num_clusters, hidden_dim]

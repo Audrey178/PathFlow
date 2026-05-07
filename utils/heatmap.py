@@ -5,14 +5,14 @@ import glob
 from tqdm import tqdm
 
 # --- CONFIGURATION ---
-STITCHED_MAP_PATH = "/mnt/disk4/video-panninng-classification/stitched/Adenoma/24b0848.jpeg"   
-FRAMES_FOLDER = "/mnt/disk4/video-panninng-classification/datasets/frames_to_find_heatmap/24b0848_frames"             
+STITCHED_MAP_PATH = "STITCHED_MAP_PATH"   
+FRAMES_FOLDER = "FRAMES_FOLDER"             
 INDICES_TO_PROCESS = list(range(len(os.listdir(FRAMES_FOLDER))))  # Process all frames
 INDICES_TO_PROCESS = [0, 30, 43, 95, 175, 193, 262, 334, 440]
 # INDICES_TO_PROCESS = INDICES_TO_PROCESS[::20]  # Example: process every 10th frame
 
 print(INDICES_TO_PROCESS)
-OUTPUT_FILENAME = "/mnt/disk4/video-panninng-classification/heatmap_outputs/24b0848_OF.jpg"
+OUTPUT_FILENAME = "OUTPUT_FILENAME"
 # VISUALIZATION
 OVERLAY_OPACITY = 0.6 
 COLORMAP = cv2.COLORMAP_JET 

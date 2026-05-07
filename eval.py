@@ -14,7 +14,7 @@ from omegaconf import OmegaConf, open_dict
 import pandas as pd
 import sys
 from utils.core_utils import build_metrics
-
+import argparse
 
 
 torch.backends.cuda.enable_flash_sdp(True)
@@ -62,7 +62,6 @@ def main(cfg: OmegaConf):
     #------------Data--------------
     print("Init Dataset...\n")
     df_test = pd.read_csv(os.path.join(cfg.csv_path, 'val.csv'))
-    #df_test = pd.read_csv(os.path.join(cfg.csv_path, 'val.csv'))
     
     test_slide_ids = df_test['slide_id'].tolist()
     test_labels = df_test['label_idx'].tolist()
@@ -70,8 +69,7 @@ def main(cfg: OmegaConf):
     print(test_labels[:10])
     
     
-    test_data = FeatureDataset(feat_dir=cfg.feats_path,slide_ids=test_slide_ids, labels=test_labels, csv_dir = '/mnt/disk4/video-panninng-classification/datasets/csv/val.csv')
-    #test_data = FeatureDataset_2(feat_dir=cfg.feats_path, slide_ids=test_slide_ids, labels=test_labels, labels_raw=test_labels_raw)
+    test_data = FeatureDataset(feat_dir=cfg.feats_path,slide_ids=test_slide_ids, labels=test_labels, csv_dir = 'datasets/csv/val.csv')
     feats, label, _ = test_data[0]
     
     print(f"Frames shape: {feats.shape}\nLabel: {label}")
@@ -85,8 +83,10 @@ def main(cfg: OmegaConf):
     main_model = VTransAdaptive(num_classes=int(cfg.num_classes),
                         ratio=float(cfg.ratio),
                         dropout= float(cfg.dropout), 
-                        hidden_dim=int(cfg.hidden_size), n_masked_patch=cfg.n_masked_patch, mask_drop=cfg.mask_drop).to(device)
-    main_model.load_state_dict(torch.load("results/new/baseline_ratio0.1_seed512.pth"))
+                        hidden_dim=int(cfg.hidden_size)).to(device)
+    model_path = os.path.join(cfg.model_path)
+    logger.info(f"Loading model from {model_path}")
+    main_model.load_state_dict(torch.load(model_path, map_location=device))
     metrics = build_metrics(cfg.num_classes, device)
     try:
         test_loss_fn = nn.CrossEntropyLoss()

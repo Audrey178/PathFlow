@@ -25,7 +25,7 @@ load_dotenv()
 
 
 wandb_token = os.getenv("WANDB_TOKEN")
-wandb.login(wandb_token)
+wandb.login(key=wandb_token)
 
 
 # --- Setup logging ---
@@ -71,20 +71,20 @@ def main(cfg: OmegaConf):
 
     #------------Data--------------
     print("Init Dataset...\n")
-    df_train = pd.read_csv(os.path.join(cfg.csv_path, 'train.csv'))
-    df_val = pd.read_csv(os.path.join(cfg.csv_path, 'test.csv'))
-    
+    train_csv = os.path.join(cfg.csv_path, 'train.csv')
+    val_csv = os.path.join(cfg.csv_path, 'val.csv')
+    df_train = pd.read_csv(train_csv)
+    df_val = pd.read_csv(val_csv)
+
     train_slide_ids = df_train['slide_id'].tolist()
     train_labels = df_train['label_idx'].tolist()
-    train_labels_raw = df_train['label'].tolist()
     print(train_labels[:10])
     
     val_slide_ids = df_val['slide_id'].tolist()
     val_labels = df_val['label_idx'].tolist()
-    val_labels_raw = df_val['label'].tolist()
     
-    train_data = FeatureDataset(feat_dir=cfg.feats_path,slide_ids=train_slide_ids, labels=train_labels, csv_dir = '/mnt/disk4/video-panninng-classification/datasets/csv/train.csv')
-    val_data = FeatureDataset(feat_dir=cfg.feats_path,slide_ids=val_slide_ids, labels=val_labels, csv_dir = '/mnt/disk4/video-panninng-classification/datasets/csv/val.csv')
+    train_data = FeatureDataset(feat_dir=cfg.feats_path,slide_ids=train_slide_ids, labels=train_labels, csv_dir = train_csv)
+    val_data = FeatureDataset(feat_dir=cfg.feats_path,slide_ids=val_slide_ids, labels=val_labels, csv_dir = val_csv)
 
     feats, label, _ = train_data[0]
     
@@ -96,24 +96,18 @@ def main(cfg: OmegaConf):
     val_loader = DataLoader(val_data , batch_size = cfg.batch_size, shuffle=False, num_workers=4,persistent_workers=True,pin_memory=True, collate_fn=collate_fn)
     print("Done!")
     #------------Model-------------
-    # main_model = VTransDuo(num_classes=int(cfg.num_classes),
-    #                     dropout= float(cfg.dropout), 
-    #                     hidden_dim=int(cfg.hidden_size), n_masked_patch=cfg.n_masked_patch, mask_drop=cfg.mask_drop).to(device)
+
     main_model = VTransAdaptive(num_classes=int(cfg.num_classes),
                         ratio=float(cfg.ratio),
                         dropout= float(cfg.dropout), 
-                        hidden_dim=int(cfg.hidden_size), n_masked_patch=cfg.n_masked_patch, mask_drop=cfg.mask_drop).to(device)
-    #
-    # main_model = VTransUnified(num_classes=int(cfg.num_classes),
-    #                 ratio=float(cfg.ratio),
-    #                 dropout= float(cfg.dropout), 
-    #                 hidden_dim=int(cfg.hidden_size), n_masked_patch=cfg.n_masked_patch, mask_drop=cfg.mask_drop, dual_branch=True).to(device)
+                        hidden_dim=int(cfg.hidden_size)).to(device)
   
     #-------------Train------------
     try:
         train(run, logger, cfg, train_loader, val_loader, device, main_model)
         name_prefix = getattr(cfg, "save_name", "best_model")
         filename = 'final/' + f"{name_prefix}.pth"
+        os.makedirs(os.path.join(cfg.results_dir_path, 'final'), exist_ok=True)
         save_path = os.path.join(cfg.results_dir_path, filename)
         torch.save(main_model.state_dict(), save_path)
         

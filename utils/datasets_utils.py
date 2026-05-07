@@ -57,18 +57,11 @@ class FeatureDataset(Dataset):
         feat_path = os.path.join(self.feat_dir, f'{slide_id}.pt')
         
         # USE OPTICAL FLOW UNCOMMENT THIS
-        origin_frames_path = find_entry_csv(self.csv_dir, slide_id)['path'][:-4].replace('videos', 'frames_v3')
-        indices = find_entry_csv(self.csv_dir, slide_id)['selected_frames_new_new_new_new']
-        indices_list = json.loads(indices)
-        indices_tensor = torch.tensor(indices_list, dtype=torch.long)
-        features_raw = torch.load(feat_path)  # [T, D]
-        features = features_raw[indices_tensor]
+        features = torch.load(feat_path)  # [T, D]
         
-        # length = features_raw.shape[0]
         length = features.shape[0]
         
         return features, label, length 
-        # return features, torch.tensor(label) 
 
 class FeatureDataset_2(Dataset): # Nam
     def __init__(self, feat_dir, slide_ids, labels, labels_raw):

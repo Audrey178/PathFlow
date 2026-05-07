@@ -21,8 +21,8 @@ load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
 huggingface_hub.login(token=hf_token)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-CHUNKSIZE = 50  # số frame xử lý mỗi lần
+device = torch.device("cpu")
+CHUNKSIZE = 50  # number of frames to process at once (adjust based on GPU memory)
 
 class TimmViTEncoder(torch.nn.Module):
     def __init__(self, model_name: str = 'hf-hub:MahmoodLab/UNI2-h', 
