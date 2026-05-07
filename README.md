@@ -12,8 +12,7 @@ We provide a subset of videos to facilitate reproducibility of our results: [Dow
 2. [Data Preparation](#data-preparation)
 3. [Training](#training)
 4. [Evaluation](#evaluation)
-5. [Inference](#inference-on-single-video)
-6. [Video demo](#video-demo)
+5. [Video demo](#video-demo)
 
 ## Installation
 
